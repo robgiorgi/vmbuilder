@@ -54,10 +54,10 @@ class Bionic(Xenial):
 #        run_cmd('mount', '--bind', '/proc', '%s/proc' % chroot_dir)
 #        run_cmd('mount', '--bind', '/sys', '%s/sys' % chroot_dir)
         self.run_in_target('touch', '/boot/grub/menu.lst')
-	self.run_in_target('bash', '-c', 'grep -qxF \"GRUB_RECORDFAIL_TIMEOUT\" /etc/default/grub || echo \"GRUB_RECORDFAIL_TIMEOUT=0\" >> /etc/default/grub')
-	self.run_in_target('bash', '-c', 'grep -qxF \"GRUB_HIDDEN_TIMEOUT\" /etc/default/grub || echo \"GRUB_HIDDEN_TIMEOUT=0\" >> /etc/default/grub')
-	self.run_in_target('sed', '-ie', 's/\(GRUB_RECORDFAIL_TIMEOUT=\).*/\\1\"0\"/', '/etc/default/grub')
-	self.run_in_target('sed', '-ie', 's/\(GRUB_HIDDEN_TIMEOUT=0=\).*/\\1\"0\"/', '/etc/default/grub')
+        self.run_in_target('bash', '-c', 'grep -qxF \"GRUB_RECORDFAIL_TIMEOUT\" /etc/default/grub || echo \"GRUB_RECORDFAIL_TIMEOUT=0\" >> /etc/default/grub')
+        self.run_in_target('bash', '-c', 'grep -qxF \"GRUB_HIDDEN_TIMEOUT\" /etc/default/grub || echo \"GRUB_HIDDEN_TIMEOUT=0\" >> /etc/default/grub')
+        self.run_in_target('sed', '-ie', 's/\(GRUB_RECORDFAIL_TIMEOUT=\).*/\\1\"0\"/', '/etc/default/grub')
+        self.run_in_target('sed', '-ie', 's/\(GRUB_HIDDEN_TIMEOUT=0=\).*/\\1\"0\"/', '/etc/default/grub')
 
         # reading the kernel command line string to be added from the kclfile
         mycl = ""
@@ -70,11 +70,11 @@ class Bionic(Xenial):
         mycl=mycl.rstrip("\n")
 
         # updating /etc/default/grub
-	self.run_in_target('sed', '-ie', '/GRUB_CMDLINE_LINUX_DEFAULT/s/quiet\(.*\)/%s \\1/' % mycl, '/etc/default/grub')
-	self.run_in_target('sed', '-ie', '/GRUB_TIMEOUT=/s/=.*/=\"0\"/', '/etc/default/grub')
-	self.run_in_target('sed', '-ie', '/GRUB_TIMEOUT_STYLE=/s/=.*/=\"menu\"/', '/etc/default/grub')
-	self.run_in_target('sed', '-ie', 's/splash//', '/etc/default/grub')
-	self.run_in_target('cat', '/etc/default/grub')
+        self.run_in_target('sed', '-ie', '/GRUB_CMDLINE_LINUX_DEFAULT/s/quiet\(.*\)/%s \\1/' % mycl, '/etc/default/grub')
+        self.run_in_target('sed', '-ie', '/GRUB_TIMEOUT=/s/=.*/=\"0\"/', '/etc/default/grub')
+        self.run_in_target('sed', '-ie', '/GRUB_TIMEOUT_STYLE=/s/=.*/=\"menu\"/', '/etc/default/grub')
+        self.run_in_target('sed', '-ie', 's/splash//', '/etc/default/grub')
+        self.run_in_target('cat', '/etc/default/grub')
 #        self.run_in_target('grub-mkconfig', '-o', '/boot/grub/grub.cfg') # same as self.run_in_target(self.updategrub)
         self.run_in_target('update-grub') # same as self.run_in_target(self.updategrub)
 
