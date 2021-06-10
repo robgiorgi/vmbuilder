@@ -263,8 +263,12 @@ class Dapper(suite.Suite):
         self.install_from_template('/boot/grub/device.map', 'devicemap', { 'prefix' : self.disk_prefix })
 
     def debootstrap(self):
+        pkgdir = os.path.dirname(os.path.abspath(__file__))
         arch = self.context.get_setting('arch')
-        cmd = ['sudo', '/usr/sbin/debootstrap', '--arch=%s' % arch]
+        keyring = self.context.get_setting('keyring')
+        if not keyring:
+            keyring= pkgdir + '/keyrings/ubuntu-archive-keyring.gpg'
+        cmd = ['sudo', '/usr/sbin/debootstrap', '--arch=%s' % arch, '--keyring=%s' % keyring]
 
         variant = self.context.get_setting('variant')
         if variant:

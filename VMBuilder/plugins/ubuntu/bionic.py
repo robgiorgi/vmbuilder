@@ -99,3 +99,25 @@ class Bionic(Xenial):
 
     def uses_grub2(self):
         return True
+
+    def debootstrap(self):
+        arch = self.context.get_setting('arch')
+        keyring = '/usr/share/keyrings/ubuntu-archive-keyring.gpg'
+        cmd = ['sudo', '/usr/sbin/debootstrap', '--arch=%s' % arch, '--keyring=%s' % keyring]
+
+        variant = self.context.get_setting('variant')
+        if variant:
+            cmd += ['--variant=%s' % variant]
+
+        debootstrap_tarball = self.context.get_setting('debootstrap-tarball')
+        if debootstrap_tarball:
+            cmd += ['--unpack-tarball=%s' % debootstrap_tarball]
+
+        suite = self.context.get_setting('suite')
+        cmd += [suite, self.context.chroot_dir, self.debootstrap_mirror()]
+        kwargs = { 'env' : { 'DEBIAN_FRONTEND' : 'noninteractive' } }
+
+        proxy = self.context.get_setting('proxy')
+        if proxy:
+            kwargs['env']['http_proxy'] = proxy
+        run_cmd(*cmd, **kwargs)

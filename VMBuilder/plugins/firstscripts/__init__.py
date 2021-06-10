@@ -31,6 +31,8 @@ class Firstscripts(Plugin):
         group = self.setting_group('Scripts')
         group.add_setting('firstboot', metavar='PATH', help='Specify a script that will be copied into the guest and executed the first time the machine boots.  This script must not be interactive.')
         group.add_setting('firstlogin', metavar='PATH', help='Specify a script that will be copied into the guest and will be executed the first time the user logs in. This script can be interactive.')
+        group.add_setting('keyring', metavar='FILE',
+            help='Use the keyring specified in this file (for debootstrap).')
 
     def preflight_check(self):
         firstboot = self.context.get_setting('firstboot')
@@ -44,6 +46,12 @@ class Firstscripts(Plugin):
             logging.debug("Checking if first login script %s exists" % (firstlogin,))
             if not(os.path.isfile(firstlogin) and firstlogin.startswith('/')):
                 raise VMBuilderUserError('The path to the first-login script is invalid: %s.  Make sure you are providing a full path.' % firstlogin)
+
+        keyring = self.context.get_setting('keyring')
+        if keyring:
+            logging.debug("Checking if KEYRING exists: %s" % keyring)
+            if not(os.path.isfile(keyring)):
+                raise VMBuilderUserError('The file KEYRING is invalid: %s - Make sure you are providing the correct name.' % keyring)
 
     def post_install(self):
         firstboot = self.context.get_setting('firstboot')
