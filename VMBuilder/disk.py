@@ -37,6 +37,7 @@ TYPE_EXT3 = 1
 TYPE_XFS = 2
 TYPE_SWAP = 3
 TYPE_EXT4 = 4
+TYPE_EFI = 5
 
 class Disk(object):
     """
@@ -213,7 +214,7 @@ class Disk(object):
         @type  length: 
         @param length: Size of the new partition (in megabytes)
         @type  type: string
-        @param type: Type of the new partition. Valid options are: ext2 ext3 xfs swap linux-swap
+        @param type: Type of the new partition. Valid options are: ext2 ext3 xfs swap linux-swap efi
         @type  mntpnt: string
         @param mntpnt: Intended mountpoint inside the guest of the new partition
         """
@@ -296,7 +297,7 @@ class Disk(object):
             """
 #NOTE: 'linux-swap(new)' has been deprecated (at least as of May 2021)
 #            mytype = { TYPE_EXT2: 'ext2', TYPE_EXT3: 'ext3', TYPE_EXT4: 'ext4', TYPE_XFS: 'xfs', TYPE_SWAP: 'linux-swap(new)' }[self.type]
-            mytype = { TYPE_EXT2: 'ext2', TYPE_EXT3: 'ext3', TYPE_EXT4: 'ext4', TYPE_XFS: 'xfs', TYPE_SWAP: 'linux-swap' }[self.type]
+            mytype = { TYPE_EXT2: 'ext2', TYPE_EXT3: 'ext3', TYPE_EXT4: 'ext4', TYPE_XFS: 'xfs', TYPE_SWAP: 'linux-swap', TYPE_EFI: 'fat32' }[self.type]
 
             # NOTE: GRUB-1 DOES NOT SUPPORT I-NODES OF SIZE GREATER THAN 128 !!
             logging.info('has_256_bit_inode_ext3_support %d' % self.disk.vm.distro.has_256_bit_inode_ext3_support())
@@ -312,7 +313,10 @@ class Disk(object):
             logging.info('Adding type %d partition to disk image: %s' % (self.type, disk.filename))
             if self.begin == 0:
                 logging.info('Partition at beginning of disk - reserving first cylinder')
-                partition_start = "63s"
+                if self.type == TYPE_EFI:
+                    partition_start = "2048s"
+                else:
+                    partition_start = "63s"
             else:
                 partition_start = self.begin
             run_cmd('parted', '--script', '--', disk.filename, 'mkpart', 'primary', self.parted_fstype(), partition_start, self.end)
@@ -399,7 +403,7 @@ class Filesystem(object):
         logging.info("END of fs.mkfs (disk.py) ++++++++++++++++++++++++++++++++++")
 
     def mkfs_fstype(self):
-        map = { TYPE_EXT2: ['mkfs.ext2', '-F'], TYPE_EXT3: ['mkfs.ext3', '-F'], TYPE_EXT4: ['mkfs.ext4', '-F'], TYPE_XFS: ['mkfs.xfs'], TYPE_SWAP: ['mkswap'] }
+        map = { TYPE_EXT2: ['mkfs.ext2', '-F'], TYPE_EXT3: ['mkfs.ext3', '-F'], TYPE_EXT4: ['mkfs.ext4', '-F'], TYPE_XFS: ['mkfs.xfs'], TYPE_SWAP: ['mkswap'], TYPE_EFI: ['mkfs.vfat'] }
 
         # NOTE: GRUB-1 DOES NOT SUPPORT I-NODES OF SIZE GREATER THAN 128 !!
         if not self.vm.distro.uses_grub2() or not self.vm.distro.has_256_bit_inode_ext3_support():
@@ -411,7 +415,7 @@ class Filesystem(object):
         return x
 
     def fstab_fstype(self):
-        return { TYPE_EXT2: 'ext2', TYPE_EXT3: 'ext3', TYPE_EXT4: 'ext4', TYPE_XFS: 'xfs', TYPE_SWAP: 'swap' }[self.type]
+        return { TYPE_EXT2: 'ext2', TYPE_EXT3: 'ext3', TYPE_EXT4: 'ext4', TYPE_XFS: 'xfs', TYPE_SWAP: 'swap', TYPE_EFI: 'vfat' }[self.type]
 
     def fstab_options(self):
         return 'defaults'
@@ -550,7 +554,8 @@ str_to_type_map = { 'ext2': TYPE_EXT2,
                  'ext4': TYPE_EXT4,
                  'xfs': TYPE_XFS,
                  'swap': TYPE_SWAP,
-                 'linux-swap': TYPE_SWAP }
+                 'linux-swap': TYPE_SWAP,
+                 'efi': TYPE_EFI }
 
 def str_to_type(type):
     try:
@@ -598,6 +603,18 @@ def get_ordered_partitions(disks):
     parts = []
     for disk in disks:
         parts += disk.partitions
+    parts.sort(key=cmp_to_key(lambda x,y: len(x.mntpnt or '')-len(y.mntpnt or '')))
+    return parts
+
+def gopn(disks):
+    parts = []
+    for disk in disks:
+        parts1 = []
+        for p in disk.partitions:
+            if not "efi" in p.mntpnt:
+#                print("*********************************** PART %s" % p.mntpnt)
+                parts1.append(p)
+        parts += parts1
     parts.sort(key=cmp_to_key(lambda x,y: len(x.mntpnt or '')-len(y.mntpnt or '')))
     return parts
 

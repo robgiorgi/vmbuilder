@@ -64,9 +64,11 @@ class Hypervisor(VMBuilder.distro.Context):
         self.call_hooks('create_partitions')
         self.call_hooks('configure_mounting', self.disks, self.filesystems)
 
+        logging.info("M01 of install_os *********************************************************************")
         self.chroot_dir = tmpdir()
         self.call_hooks('mount_partitions', self.chroot_dir)
         run_cmd('rsync', '-aHA', '%s/' % self.distro.chroot_dir, self.chroot_dir)
+        logging.info("M02 of install_os *********************************************************************")
         self.distro.set_chroot_dir(self.chroot_dir)
         if self.needs_bootloader:
             self.call_hooks('install_bootloader', self.chroot_dir, self.disks)

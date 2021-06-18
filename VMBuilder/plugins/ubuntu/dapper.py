@@ -247,7 +247,7 @@ class Dapper(suite.Suite):
         # If setting up the final mirror, allow apt-get update to fail
         # (since we might be on a complete different network than the
         # final vm is going to be on).
-        self.run_in_target('apt-get', 'update', ignore_fail=final)
+        self.run_in_target('apt-get', '-y', 'update', ignore_fail=final)
 
     def install_apt_proxy(self):
         proxy = self.context.get_setting('proxy')
@@ -256,7 +256,14 @@ class Dapper(suite.Suite):
 
     def install_fstab(self, disks, filesystems):
         logging.info("BEG of install_fstab =====================================================")
-        self.install_from_template('/etc/fstab', 'dapper_fstab', { 'parts' : disk.get_ordered_partitions(disks) })
+        print(disk.get_ordered_partitions(disks))
+        print("----")
+#        print(disk.get_ordered_partitions_noefi(disks))
+        print(disk.gopn(disks))
+        print("----")
+#        self.install_from_template('/etc/fstab', 'dapper_fstab', { 'parts' : disk.get_ordered_partitions(disks) })
+#        self.install_from_template('/etc/fstab', 'dapper_fstab', { 'parts' : disk.get_ordered_partitions_noefi(disks) })
+        self.install_from_template('/etc/fstab', 'dapper_fstab', { 'parts' : disk.gopn(disks) })
         logging.info("END of install_fstab =====================================================")
 
     def install_device_map(self):

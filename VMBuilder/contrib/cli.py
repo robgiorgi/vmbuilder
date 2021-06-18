@@ -104,6 +104,11 @@ class CLI(object):
                              default=4096,
                              help=('Size (in MB) of the root filesystem '
                                    '[default: %default]'))
+            group.add_option('--efisize',
+                             metavar='SIZE',
+                             default=0,
+                             help=('Size (in MB) of the /boot/efi filesystem. If not'
+                                   ' set, no /boot/efi filesystem will be added.'))
             group.add_option('--optsize',
                              metavar='SIZE',
                              default=0,
@@ -312,9 +317,14 @@ class CLI(object):
         if not self.options.part:
             rootsize = parse_size(self.options.rootsize)
             swapsize = parse_size(self.options.swapsize)
+            efisize = parse_size(self.options.efisize)
             optsize = parse_size(self.options.optsize)
             if hypervisor.preferred_storage == VMBuilder.hypervisor.STORAGE_FS_IMAGE:
                 tmpfile = util.tmp_filename(tmp_root=self.options.tmp_root)
+                hypervisor.add_filesystem(filename=tmpfile,
+                                          size='%dM' % efisize,
+                                          type='efi',
+                                          mntpnt='/boot/efi')
                 hypervisor.add_filesystem(filename=tmpfile,
                                           size='%dM' % rootsize,
                                           type='ext3',
@@ -337,10 +347,15 @@ class CLI(object):
                         hypervisor.add_disk(filename=raw_disk)
                     disk = hypervisor.disks[0]
                 else:
-                    size = rootsize + swapsize + optsize
+                    size = rootsize + swapsize + optsize + efisize
                     tmpfile = util.tmp_filename(tmp_root=self.options.tmp_root)
                     disk = hypervisor.add_disk(tmpfile, size='%dM' % size)
                 offset = 0
+
+                if efisize > 0:
+                    disk.add_part(offset, efisize, 'efi', '/boot/efi')
+                    offset += efisize
+
                 disk.add_part(offset, rootsize, default_filesystem, '/')
                 offset += rootsize
                 if swapsize > 0:

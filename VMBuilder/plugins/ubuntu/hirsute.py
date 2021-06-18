@@ -24,14 +24,31 @@ import re
 import logging
 
 class Hirsute(Focal):
+    valid_flavours = { 'i386' :  ['386', 'generic', 'generic-pae', 'virtual'],
+                       'amd64' : ['generic', 'server', 'virtual'],
+                       'lpia'  : ['lpia'] }
+
+    preferred_filesystem = 'ext4'
+
 
     def install_grub(self, chroot_dir, devmapfile, root_dev, kclfile):
+        logging.info("BEG of install_grub =====================================================")
         self.install_from_template('/etc/kernel-img.conf', 'kernelimg', { 'updategrub' : self.updategrub })
         arch = self.context.get_setting('arch')
-        self.run_in_target('apt-get', '-y', 'install', 'grub2-common', 'grub-pc', env={ 'DEBIAN_FRONTEND' : 'noninteractive' })
-        self.run_in_target('dpkg-reconfigure', 'grub-pc', env={ 'UCF_FORCE_CONFFMISS' : 'Yes', 'DEBIAN_FRONTEND' : 'noninteractive' })
-#        run_cmd('rsync', '-a', '%s%s/%s/' % (chroot_dir, self.grubroot, arch == 'amd64' and 'x86_64-pc' or 'i386-pc'), '%s/boot/grub/' % chroot_dir)
-        run_cmd('rsync', '-a', '%s%s/%s/' % (chroot_dir, self.grubroot, 'i386-pc'), '%s/boot/grub/' % chroot_dir)
+        arch = 'i386' # forcing an i386 target for grub
+        if arch == 'amd64':
+            target  = 'x86_64-efi'
+            grubpkg = 'grub-efi-amd64'
+            grubpk2 = 'efibootmgr'
+        else:
+            target  = 'i386-pc'
+            grubpkg = 'grub-pc'
+            grubpk2 = ''
+
+        self.run_in_target('apt-get', '-y', 'install', 'grub2-common', grubpkg, 'fdisk', grubpk2, env={ 'DEBIAN_FRONTEND' : 'noninteractive' })
+        self.run_in_target('dpkg-reconfigure', grubpkg, env={ 'UCF_FORCE_CONFFMISS' : 'Yes', 'DEBIAN_FRONTEND' : 'noninteractive' })
+        run_cmd('rsync', '-a', '%s%s/%s/' % (chroot_dir, self.grubroot, target), '%s/boot/grub/' % chroot_dir)
+
         self.run_in_target('echo', '\"%s\"' % devmapfile)
         self.run_in_target('cat', '/tmp/vmbuilder-grub/device.map')
         self.run_in_target('ls', '-l', '/tmp/vmbuilder-grub/')
@@ -48,17 +65,28 @@ class Hirsute(Focal):
         self.run_in_target('ls', '-l', '/etc/default')
         self.run_in_target('cat', '/etc/fstab')
         mydrv = re.search(r'loop[0-9]+',myloopdev).group()
+
+#        run_cmd('mount', '--bind', '/dev', '%s/dev' % chroot_dir)
+        run_cmd('mount', '--bind', '/proc', '%s/proc' % chroot_dir)
+        run_cmd('mount', '--bind', '/sys', '%s/sys' % chroot_dir)
+
 #        run_cmd('grub-install', '--boot-directory=%s/boot' % chroot_dir, '--root-directory=%s' % chroot_dir, '/dev/%s' % mydrv)
-        run_cmd('grub-install', '--boot-directory=%s/boot' % chroot_dir, '--root-directory=%s' % chroot_dir, '--target=i386-pc', '/dev/%s' % mydrv)
+##        run_cmd('grub-install', '--boot-directory=%s/boot' % chroot_dir, '--root-directory=%s' % chroot_dir, '--target=i386-pc', '/dev/%s' % mydrv)
+#        run_cmd('grub-install', '--boot-directory=%s/boot' % chroot_dir, '--root-directory=%s' % chroot_dir, '--target=%s' % target, '/dev/%s' % mydrv, '--no-uefi-secure-boot')
+#        run_cmd('mkdir', '%s/boot/efi' % chroot_dir)
+#        run_cmd('mount', '')
+        run_cmd('grub-install', '--boot-directory=%s/boot' % chroot_dir, '--root-directory=%s' % chroot_dir, '--target=%s' % target, '/dev/%s' % mydrv, '--no-uefi-secure-boot', '--efi-directory=%s/boot/efi' % chroot_dir)
+
+
         run_cmd('mount', '--bind', '/dev', '%s/dev' % chroot_dir)
-#        run_cmd('mount', '--bind', '/proc', '%s/proc' % chroot_dir)
-#        run_cmd('mount', '--bind', '/sys', '%s/sys' % chroot_dir)
+##        run_cmd('mount', '--bind', '/proc', '%s/proc' % chroot_dir)
+##        run_cmd('mount', '--bind', '/sys', '%s/sys' % chroot_dir)
         self.run_in_target('touch', '/boot/grub/menu.lst')
 
         self.run_in_target('grub-editenv', '-', 'unset', 'recordfail')
         self.run_in_target('bash', '-c', 'grep -qxF \"GRUB_RECORDFAIL_TIMEOUT\" /etc/default/grub || echo \"GRUB_RECORDFAIL_TIMEOUT=0\" >> /etc/default/grub')
         self.run_in_target('bash', '-c', 'grep -qxF \"GRUB_HIDDEN_TIMEOUT\" /etc/default/grub || echo \"GRUB_HIDDEN_TIMEOUT=0\" >> /etc/default/grub')
-        self.run_in_target('sed', '-ie', 's/\(GRUB_RECORDFAIL_TIMEOUT=\).*/\\1\"0\"/', '/etc/default/grub')
+        self.run_in_target('sed', '-ie', 's/\(GRUB_RECORDFAIL_TIMEOUT=\).*/\\1\"5\"/', '/etc/default/grub')
         self.run_in_target('sed', '-ie', 's/\(GRUB_HIDDEN_TIMEOUT=0=\).*/\\1\"0\"/', '/etc/default/grub')
 
         # Shut down a couple of failing daemons at boot time
@@ -85,6 +113,15 @@ class Hirsute(Focal):
         self.run_in_target('update-grub') # same as self.run_in_target(self.updategrub)
         self.run_in_target('sync')
         self.run_in_target('sync')
+#        exit();
+
+        try:
+            run_cmd('umount', '%s/sys' % destdir)
+            run_cmd('umount', '%s/proc' % destdir)
+        except:
+            pass
+
+        logging.info("END of install_grub =====================================================")
 
     def install_menu_lst(self, disks):
 #        self.run_in_target(self.updategrub, '-y') # deprecated
@@ -107,3 +144,25 @@ class Hirsute(Focal):
 
     def uses_grub2(self):
         return True
+
+    def install_extras(self):
+        seedfile = self.context.get_setting('seedfile')
+        if seedfile:
+            self.seed(seedfile)
+
+        addpkg = self.context.get_setting('addpkg')
+        removepkg = self.context.get_setting('removepkg')
+        if not addpkg and not removepkg:
+            return
+
+#        cmd = ['apt-get', 'install', '-y', '--force-yes'] #deprecated
+        cmd = ['apt-get', 'install', '-y']
+        cmd += addpkg or []
+        cmd += ['%s-' % pkg for pkg in removepkg or []]
+        self.run_in_target(env={ 'DEBIAN_FRONTEND' : 'noninteractive' }, *cmd)
+
+    def update(self):
+#        self.run_in_target('apt-get', '-y', '--force-yes', 'update',   #deprecated
+#                           env={ 'DEBIAN_FRONTEND' : 'noninteractive' })
+        self.run_in_target('apt-get', '-y', 'update',
+                           env={ 'DEBIAN_FRONTEND' : 'noninteractive' })

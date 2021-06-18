@@ -45,7 +45,9 @@ proc                                            /proc           proc    defaults
 '''
         parts = disk.get_ordered_partitions(self.context.disks)
         for part in parts:
-            retval += "UUID=%-40s %15s %7s %15s %d       %d\n" % (part.fs.uuid, part.fs.mntpnt, part.fs.fstab_fstype(), part.fs.fstab_options(), 0, 0)
+            print("PART: %s %s" %  (part.fs.mntpnt, part.fs.fstab_fstype()))
+            if not "efi" in part.fs.mntpnt:
+                retval += "UUID=%-40s %15s %7s %15s %d       %d\n" % (part.fs.uuid, part.fs.mntpnt, part.fs.fstab_fstype(), part.fs.fstab_options(), 0, 0)
         return retval
 
     def copy_settings(self):
