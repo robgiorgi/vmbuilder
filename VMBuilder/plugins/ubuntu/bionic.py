@@ -27,6 +27,7 @@ class Bionic(Xenial):
 
     def install_grub(self, chroot_dir, devmapfile, root_dev, kclfile):
         self.install_from_template('/etc/kernel-img.conf', 'kernelimg', { 'updategrub' : self.updategrub })
+
         arch = self.context.get_setting('arch')
         self.run_in_target('apt-get', '-y', 'install', 'grub2-common', 'grub-pc', env={ 'DEBIAN_FRONTEND' : 'noninteractive' })
         self.run_in_target('dpkg-reconfigure', 'grub-pc', env={ 'UCF_FORCE_CONFFMISS' : 'Yes', 'DEBIAN_FRONTEND' : 'noninteractive' })
@@ -57,7 +58,7 @@ class Bionic(Xenial):
         self.run_in_target('bash', '-c', 'grep -qxF \"GRUB_RECORDFAIL_TIMEOUT\" /etc/default/grub || echo \"GRUB_RECORDFAIL_TIMEOUT=0\" >> /etc/default/grub')
         self.run_in_target('bash', '-c', 'grep -qxF \"GRUB_HIDDEN_TIMEOUT\" /etc/default/grub || echo \"GRUB_HIDDEN_TIMEOUT=0\" >> /etc/default/grub')
         self.run_in_target('sed', '-ie', 's/\(GRUB_RECORDFAIL_TIMEOUT=\).*/\\1\"0\"/', '/etc/default/grub')
-        self.run_in_target('sed', '-ie', 's/\(GRUB_HIDDEN_TIMEOUT=0=\).*/\\1\"0\"/', '/etc/default/grub')
+        self.run_in_target('sed', '-ie', 's/\(GRUB_HIDDEN_TIMEOUT=0=\).*/\\1\"5\"/', '/etc/default/grub')
 
         # reading the kernel command line string to be added from the kclfile
         mycl = ""

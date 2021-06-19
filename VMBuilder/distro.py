@@ -49,6 +49,7 @@ class Context(VMBuilder.plugins.Plugin):
             f()
         try:
             run_cmd('service', 'rsyslog', 'stop')
+            run_cmd('systemctl', 'stop', 'rsyslog.service', 'syslog.socket')
         except:
             pass
 

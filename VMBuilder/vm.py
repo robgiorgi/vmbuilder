@@ -105,7 +105,7 @@ class VM(object):
 
     def _register_base_settings(self):
         self.register_setting('-d', '--dest', dest='destdir', help='Specify the destination directory. [default: <hypervisor>-<distro>].')
-        self.register_setting('-c', '--config',  type='string', help='Specify a additional configuration file')
+        self.register_setting('-c', '--config',  type='str', help='Specify a additional configuration file')
         self.register_setting('--debug', action='callback', callback=log.set_verbosity, help='Show debug information')
         self.register_setting('-v', '--verbose', action='callback', callback=log.set_verbosity, help='Show progress information')
         self.register_setting('-q', '--quiet', action='callback', callback=log.set_verbosity, help='Silent operation')

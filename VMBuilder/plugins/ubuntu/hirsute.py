@@ -34,6 +34,37 @@ class Hirsute(Focal):
     def install_grub(self, chroot_dir, devmapfile, root_dev, kclfile):
         logging.info("BEG of install_grub =====================================================")
         self.install_from_template('/etc/kernel-img.conf', 'kernelimg', { 'updategrub' : self.updategrub })
+
+        # installing the kernel that is in tmplinux, if lkif (linux kernel image file)
+        lkif = self.context.get_setting('lkif')
+        lkmf = self.context.get_setting('lkmf')
+        print('lkif=%s' % lkif)
+        print('lkmf=%s' % lkmf)
+        if lkif:
+            self.run_in_target('apt-get', '-y', 'install', 'linux-base', 'initramfs-tools', env={ 'DEBIAN_FRONTEND' : 'noninteractive' })
+            self.run_in_target('rm', '-f', '/boot/{config*,initrd*,System-map*,vmlinuz*}')
+            self.run_in_target('mkdir', '/linux')
+            self.run_in_target('chmod', '+rx', '/linux')
+            tmplinux = self.context.get_setting('tmplinux')
+            if lkif:
+                run_cmd('rsync', '-a', lkif, '%s/linux' % chroot_dir)
+            if lkmf:
+                run_cmd('rsync', '-a', lkmf, '%s/linux' % chroot_dir)
+            kll = run_cmd('ls', '%s/linux/' % chroot_dir).split('\n')
+            r=re.compile('linux-image.*')
+            kfnl = list(filter(r.match,kll))
+            if len(kfnl) > 0:
+                # extract the linux version number from the filename
+                kfn = kfnl[0]
+                kvn = re.search(r'[0-9][^-]*-[0-9]*',kfn).group()
+                self.run_in_target('ls', '-la', '/linux/')
+                self.run_in_target('bash', '-c', 'dpkg -i --force-all /linux/*')
+                self.run_in_target('apt', '--fix-broken', 'install')
+                self.run_in_target('update-initramfs', '-c', '-k', kvn)
+                self.run_in_target('apt-mark', 'hold', 'linux-image-generic', 'linux-headers-generic')
+            run_cmd('rm', '-rf', tmplinux)
+
+        # select grub architecture-dependent files
         arch = self.context.get_setting('arch')
         arch = 'i386' # forcing an i386 target for grub
         if arch == 'amd64':
@@ -66,9 +97,9 @@ class Hirsute(Focal):
         self.run_in_target('cat', '/etc/fstab')
         mydrv = re.search(r'loop[0-9]+',myloopdev).group()
 
-#        run_cmd('mount', '--bind', '/dev', '%s/dev' % chroot_dir)
-        run_cmd('mount', '--bind', '/proc', '%s/proc' % chroot_dir)
-        run_cmd('mount', '--bind', '/sys', '%s/sys' % chroot_dir)
+##        run_cmd('mount', '--bind', '/dev', '%s/dev' % chroot_dir)
+#        run_cmd('mount', '--bind', '/proc', '%s/proc' % chroot_dir)
+#        run_cmd('mount', '--bind', '/sys', '%s/sys' % chroot_dir)
 
 #        run_cmd('grub-install', '--boot-directory=%s/boot' % chroot_dir, '--root-directory=%s' % chroot_dir, '/dev/%s' % mydrv)
 ##        run_cmd('grub-install', '--boot-directory=%s/boot' % chroot_dir, '--root-directory=%s' % chroot_dir, '--target=i386-pc', '/dev/%s' % mydrv)
@@ -115,11 +146,11 @@ class Hirsute(Focal):
         self.run_in_target('sync')
 #        exit();
 
-        try:
-            run_cmd('umount', '%s/sys' % destdir)
-            run_cmd('umount', '%s/proc' % destdir)
-        except:
-            pass
+#        try:
+#            run_cmd('umount', '%s/sys' % destdir)
+#            run_cmd('umount', '%s/proc' % destdir)
+#        except:
+#            pass
 
         logging.info("END of install_grub =====================================================")
 
@@ -134,8 +165,10 @@ class Hirsute(Focal):
     def install_kernel(self, destdir):
         try:
             self.run_in_target('mount', '-t', 'proc', 'proc', '/proc')
-#            run_cmd('chroot', destdir, 'apt-get', '--force-yes', '-y', 'install', self.kernel_name(), env={ 'DEBIAN_FRONTEND' : 'noninteractive' }) #deprecated
-            run_cmd('chroot', destdir, 'apt-get', '-y', 'install', self.kernel_name(), env={ 'DEBIAN_FRONTEND' : 'noninteractive' })
+            lkif = self.context.get_setting('lkif')
+            if not lkif: # if an image was not installed before
+#              run_cmd('chroot', destdir, 'apt-get', '--force-yes', '-y', 'install', self.kernel_name(), env={ 'DEBIAN_FRONTEND' : 'noninteractive' }) #deprecated
+                run_cmd('chroot', destdir, 'apt-get', '-y', 'install', self.kernel_name(), env={ 'DEBIAN_FRONTEND' : 'noninteractive' })
         finally:
             self.run_in_target('umount', '/proc')
 #        run_cmd('umount', '%s/sys' % destdir)

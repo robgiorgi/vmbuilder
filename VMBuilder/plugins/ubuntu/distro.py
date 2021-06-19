@@ -17,6 +17,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 import logging
+import re
 import os
 import shutil
 import stat
@@ -24,6 +25,9 @@ import VMBuilder
 from   VMBuilder           import register_distro, Distro
 from   VMBuilder.util      import run_cmd
 from   VMBuilder.exception import VMBuilderUserError, VMBuilderException
+import urllib
+from urllib.request import urlopen
+
 
 class Ubuntu(Distro):
     name = 'Ubuntu'
@@ -68,6 +72,10 @@ class Ubuntu(Distro):
         group.add_setting('ppa', metavar='PPA', type='list', help='Add ppa belonging to PPA to the vm\'s sources.list.')
         group.add_setting('lang', metavar='LANG', default=get_locale(), help='Set the locale to LANG [default: %default]')
         group.add_setting('timezone', metavar='TZ', default='UTC', help='Set the timezone to TZ in the vm. [default: %default]')
+        group.add_setting('vkernel', type='str', default='', help='Set the kernel version. [default: %default]')
+        group.add_setting('lkif', type='str', default='', help='Set the linux-image file [default: %default]')
+        group.add_setting('lkmf', type='str', default='', help='Set the linux-modules file. [default: %default]')
+        group.add_setting('tmplinux', type='str', default='', help='Set the temporary dir for linux-image files. [default: %default]')
 
         group = self.setting_group('Settings for the initial user')
         group.add_setting('user', default='ubuntu', help='Username of initial user [default: %default]')
@@ -130,6 +138,74 @@ class Ubuntu(Distro):
             raise VMBuilderUserError("Seedfile '%s' does not exist" % seedfile)
 
         lang = self.get_setting('lang')
+
+        # check if can download kernel
+        vkernel = self.context.get_setting('vkernel')
+        ppaurl='https://kernel.ubuntu.com/~kernel-ppa/mainline/v%s/amd64/' % vkernel
+        if vkernel:
+            logging.info('Checking URL: %s' % ppaurl)
+            status_code = 404
+            try:
+                status_code = urlopen(ppaurl).getcode()
+            except:
+                pass
+            if status_code != 200:
+                raise VMBuilderUserError(\
+                    'STOP: kernel %s is not available or there is a temporary internet problem (code=%s)' \
+                    % (vkernel,status_code))
+            tmplinux = run_cmd('mktemp', '-d', '/tmp/linux-img-XXXXXX').rstrip("\n")
+            self.context.set_setting('tmplinux', tmplinux)
+            self.context.add_clean_cmd('rm', '-rf', tmplinux)
+            run_cmd('wget', '-q', '-r', '-e', 'robots=off', '-P', tmplinux, \
+                '--no-check-certificate', '--no-parent', '-A', \
+                'linux-*%s*generic*' % vkernel, '-R', 'index*', ppaurl)
+            run_cmd('chmod', '-R', '+rx', tmplinux)
+            lid2 = tmplinux + '/' + 'kernel.ubuntu.com/~kernel-ppa/mainline/v' + vkernel + '/amd64/'
+            run_cmd('rm', '-rf', lid2 + 'self-tests')
+            kflist = run_cmd('ls', lid2).split('\n')
+            logging.debug("kflist=%s" % kflist)
+
+            r=re.compile('linux-image.*generic.*')
+            lkif1l = list(filter(r.match,kflist))
+            if len(lkif1l) > 0:
+                lkif1 = lkif1l[0]
+                lkif2 = lid2 + lkif1
+                lkif = tmplinux + '/' + lkif1
+                self.context.set_setting('lkif', lkif)
+                logging.debug("lkif=%s" % lkif)
+            else:
+                lkif=''
+                lkif2=''
+
+            r=re.compile('linux-modules.*generic.*')
+            lkmf1l = list(filter(r.match,kflist))
+            if len(lkmf1l) > 0:
+                lkmf1 = lkmf1l[0]
+                lkmf2 = lid2 + lkmf1
+                lkmf = tmplinux + '/' + lkmf1
+                self.context.set_setting('lkmf', lkmf)
+                logging.debug("lkmf=%s" % lkmf)
+            else:
+                lkmf=''
+                lkmf2=''
+
+            # linux-image is mandatory if vkernel is specified
+            if os.path.isfile(lkif2):
+                run_cmd('mv', lkif2, lkif)
+                logging.debug ("file OK %s" % lkif)
+            else:
+                raise VMBuilderUserError('STOP: cannot download kernel %s from %s' % (vkernel,ppaurl))
+
+            # linux-modules are optional on PPA repo
+            if os.path.isfile(lkmf2):
+                run_cmd('mv', lkmf2, lkmf)
+                logging.debug ("file OK %s" % lkmf)
+
+            logging.debug ("file lkif %s" % lkif)
+            logging.debug ("file lkmf %s" % lkmf)
+            logging.debug ("temporary linux-image dir: %s" % tmplinux)
+#        raise VMBuilderUserError('STOP')
+
 
 # FIXME
 #        if getattr(self.vm, 'ec2', False):
