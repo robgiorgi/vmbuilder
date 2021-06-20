@@ -38,8 +38,12 @@ class Hirsute(Focal):
         # installing the kernel that is in tmplinux, if lkif (linux kernel image file)
         lkif = self.context.get_setting('lkif')
         lkmf = self.context.get_setting('lkmf')
-        print('lkif=%s' % lkif)
-        print('lkmf=%s' % lkmf)
+        lh1f = self.context.get_setting('lh1f')
+        lh2f = self.context.get_setting('lh2f')
+        logging.info('lkif=%s' % lkif)
+        logging.info('lkmf=%s' % lkmf)
+        logging.info('lh1f=%s' % lh1f)
+        logging.info('lh2f=%s' % lh2f)
         if lkif:
             self.run_in_target('apt-get', '-y', 'install', 'linux-base', 'initramfs-tools', env={ 'DEBIAN_FRONTEND' : 'noninteractive' })
             self.run_in_target('rm', '-f', '/boot/{config*,initrd*,System-map*,vmlinuz*}')
@@ -50,6 +54,10 @@ class Hirsute(Focal):
                 run_cmd('rsync', '-a', lkif, '%s/linux' % chroot_dir)
             if lkmf:
                 run_cmd('rsync', '-a', lkmf, '%s/linux' % chroot_dir)
+            if lh1f:
+                run_cmd('rsync', '-a', lh1f, '%s/linux' % chroot_dir)
+            if lh2f:
+                run_cmd('rsync', '-a', lh2f, '%s/linux' % chroot_dir)
             kll = run_cmd('ls', '%s/linux/' % chroot_dir).split('\n')
             r=re.compile('linux-image.*')
             kfnl = list(filter(r.match,kll))
@@ -138,7 +146,7 @@ class Hirsute(Focal):
         self.run_in_target('sed', '-ie', '/GRUB_CMDLINE_LINUX_DEFAULT/s/quiet\(.*\)/%s \\1/' % mycl, '/etc/default/grub')
         self.run_in_target('sed', '-ie', '/GRUB_TIMEOUT=/s/=.*/=\"2\"/', '/etc/default/grub')
         self.run_in_target('sed', '-ie', '/GRUB_TIMEOUT_STYLE=/s/=.*/=\"menu\"/', '/etc/default/grub')
-        self.run_in_target('sed', '-ie', 's/splash//', '/etc/default/grub')
+#        self.run_in_target('sed', '-ie', 's/splash//', '/etc/default/grub')
         self.run_in_target('cat', '/etc/default/grub')
 #        self.run_in_target('grub-mkconfig', '-o', '/boot/grub/grub.cfg') # same as self.run_in_target(self.updategrub)
         self.run_in_target('update-grub') # same as self.run_in_target(self.updategrub)
