@@ -74,6 +74,7 @@ class Ubuntu(Distro):
         group.add_setting('timezone', metavar='TZ', default='UTC', help='Set the timezone to TZ in the vm. [default: %default]')
         group.add_setting('vkernel', type='str', default='', help='Set the kernel version. [default: %default]')
         group.add_setting('vktype', type='str', default='generic', help='Set the kernel version type. [default: %default]')
+        group.add_setting('kheaders', type='bool', default='', help='Install the kernel headers. [default: %default]')
         group.add_setting('lkif', type='str', default='', help='Set the linux-image file [default: %default]')
         group.add_setting('lkmf', type='str', default='', help='Set the linux-modules file. [default: %default]')
         group.add_setting('lh1f', type='str', default='', help='Set the linux-headers1 file. [default: %default]')
@@ -145,6 +146,7 @@ class Ubuntu(Distro):
         # check if can download kernel
         vkernel = self.context.get_setting('vkernel')
         vktype = self.context.get_setting('vktype')
+        kheaders = self.context.get_setting('vktype')
         ppaurl='https://kernel.ubuntu.com/~kernel-ppa/mainline/v%s/amd64/' % vkernel
 #        vktype="generic"
 #        vktype="lowlatency"
@@ -165,9 +167,10 @@ class Ubuntu(Distro):
             run_cmd('wget', '-q', '-r', '-e', 'robots=off', '-P', tmplinux, \
                 '--no-check-certificate', '--no-parent', '-A', \
                 'linux-*%s*%s*' % (vkernel, vktype), '-R', 'index*', ppaurl)
-            run_cmd('wget', '-q', '-r', '-e', 'robots=off', '-P', tmplinux, \
-                '--no-check-certificate', '--no-parent', '-A', \
-                'linux-headers*%s*all.deb*' % vkernel, '-R', 'index*', ppaurl)
+            if kheaders:
+                run_cmd('wget', '-q', '-r', '-e', 'robots=off', '-P', tmplinux, \
+                    '--no-check-certificate', '--no-parent', '-A', \
+                    'linux-headers*%s*all.deb*' % vkernel, '-R', 'index*', ppaurl)
             run_cmd('chmod', '-R', '+rx', tmplinux)
             lid2 = tmplinux + '/' + 'kernel.ubuntu.com/~kernel-ppa/mainline/v' + vkernel + '/amd64/'
             run_cmd('rm', '-rf', lid2 + 'self-tests')
@@ -198,31 +201,30 @@ class Ubuntu(Distro):
                 lkmf=''
                 lkmf2=''
 
-            r=re.compile('linux-headers.*%s.*' % vktype)
-            lh1f1l = list(filter(r.match,kflist))
-#            lh1f1l = []
-            if len(lh1f1l) > 0:
-                lh1f1 = lh1f1l[0]
-                lh1f2 = lid2 + lh1f1
-                lh1f = tmplinux + '/' + lh1f1
-            else:
-                lh1f=''
-                lh1f2=''
-            self.context.set_setting('lh1f', lh1f)
-            logging.debug("lh1f=%s" % lh1f)
+            lh1f=''
+            lh1f2=''
+            lh2f=''
+            lh2f2=''
+            if kheaders:
+                r=re.compile('linux-headers.*%s.*' % vktype)
+                lh1f1l = list(filter(r.match,kflist))
+    #            lh1f1l = []
+                if len(lh1f1l) > 0:
+                    lh1f1 = lh1f1l[0]
+                    lh1f2 = lid2 + lh1f1
+                    lh1f = tmplinux + '/' + lh1f1
+                self.context.set_setting('lh1f', lh1f)
+                logging.debug("lh1f=%s" % lh1f)
 
-            r=re.compile('linux-headers.*all.deb')
-            lh2f1l = list(filter(r.match,kflist))
-#            lh2f1l = []
-            if len(lh2f1l) > 0:
-                lh2f1 = lh2f1l[0]
-                lh2f2 = lid2 + lh2f1
-                lh2f = tmplinux + '/' + lh2f1
-            else:
-                lh2f=''
-                lh2f2=''
-            self.context.set_setting('lh2f', lh2f)
-            logging.debug("lh2f=%s" % lh2f)
+                r=re.compile('linux-headers.*all.deb')
+                lh2f1l = list(filter(r.match,kflist))
+    #            lh2f1l = []
+                if len(lh2f1l) > 0:
+                    lh2f1 = lh2f1l[0]
+                    lh2f2 = lid2 + lh2f1
+                    lh2f = tmplinux + '/' + lh2f1
+                self.context.set_setting('lh2f', lh2f)
+                logging.debug("lh2f=%s" % lh2f)
 
             # linux-image is mandatory if vkernel is specified
             if os.path.isfile(lkif2):

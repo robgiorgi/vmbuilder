@@ -123,8 +123,12 @@ class Hirsute(Focal):
         self.run_in_target('touch', '/boot/grub/menu.lst')
 
         self.run_in_target('grub-editenv', '-', 'unset', 'recordfail')
+        self.run_in_target('bash', '-c', 'grep -qxF \"GRUB_TERMINAL\" /etc/default/grub || echo \"GRUB_TERMINAL=console\" >> /etc/default/grub')
+        self.run_in_target('bash', '-c', 'grep -qxF \"GRUB_GFXMODE\" /etc/default/grub || echo \"GRUB_GFXMODE=text\" >> /etc/default/grub')
         self.run_in_target('bash', '-c', 'grep -qxF \"GRUB_RECORDFAIL_TIMEOUT\" /etc/default/grub || echo \"GRUB_RECORDFAIL_TIMEOUT=0\" >> /etc/default/grub')
         self.run_in_target('bash', '-c', 'grep -qxF \"GRUB_HIDDEN_TIMEOUT\" /etc/default/grub || echo \"GRUB_HIDDEN_TIMEOUT=0\" >> /etc/default/grub')
+        self.run_in_target('sed', '-ie', 's/\(GRUB_TERMINAL=\).*/\\1\"console\"/', '/etc/default/grub')
+        self.run_in_target('sed', '-ie', 's/\(GRUB_GFXMODE=\).*/\\1\"text\"/', '/etc/default/grub')
         self.run_in_target('sed', '-ie', 's/\(GRUB_RECORDFAIL_TIMEOUT=\).*/\\1\"5\"/', '/etc/default/grub')
         self.run_in_target('sed', '-ie', 's/\(GRUB_HIDDEN_TIMEOUT=0=\).*/\\1\"0\"/', '/etc/default/grub')
 
@@ -146,7 +150,8 @@ class Hirsute(Focal):
         self.run_in_target('sed', '-ie', '/GRUB_CMDLINE_LINUX_DEFAULT/s/quiet\(.*\)/%s \\1/' % mycl, '/etc/default/grub')
         self.run_in_target('sed', '-ie', '/GRUB_TIMEOUT=/s/=.*/=\"2\"/', '/etc/default/grub')
         self.run_in_target('sed', '-ie', '/GRUB_TIMEOUT_STYLE=/s/=.*/=\"menu\"/', '/etc/default/grub')
-#        self.run_in_target('sed', '-ie', 's/splash//', '/etc/default/grub')
+        self.run_in_target('sed', '-ie', 's/splash//', '/etc/default/grub')
+        self.run_in_target('sed', '-ie', 's/vt.handoff=[0-9]//', '/etc/default/grub')
         self.run_in_target('cat', '/etc/default/grub')
 #        self.run_in_target('grub-mkconfig', '-o', '/boot/grub/grub.cfg') # same as self.run_in_target(self.updategrub)
         self.run_in_target('update-grub') # same as self.run_in_target(self.updategrub)
